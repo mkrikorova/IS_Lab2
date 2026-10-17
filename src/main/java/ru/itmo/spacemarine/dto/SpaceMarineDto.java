@@ -15,4 +15,6 @@ public class SpaceMarineDto {
     public Integer heartCount;
     public int height;
     public MeleeWeapon meleeWeapon;
+    /** Версия объекта: клиент возвращает её при изменении (оптимистическая блокировка). */
+    public long version;
 }

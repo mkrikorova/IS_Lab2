@@ -18,7 +18,8 @@ import java.util.List;
 @Path("/space-marines")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
+// @Consumes — только у POST/PUT: у DELETE тела нет (иначе 415, если клиент
+// прислал Content-Type, отличный от JSON, — так делал JMeter)
 public class SpaceMarineController {
 
     @Inject
@@ -44,11 +45,13 @@ public class SpaceMarineController {
     }
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response create(@NotNull(message = "Пустое тело запроса") @Valid SpaceMarineRequest request) {
         return Response.status(Response.Status.CREATED).entity(service.create(request)).build();
     }
 
     @PUT
+    @Consumes(MediaType.APPLICATION_JSON)
     @Path("/{id}")
     public SpaceMarineDto update(@PathParam("id") Integer id,
                                  @NotNull(message = "Пустое тело запроса") @Valid SpaceMarineRequest request) {

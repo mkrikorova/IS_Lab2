@@ -39,4 +39,10 @@ public class SpaceMarineRequest {
     public Integer height;
 
     public MeleeWeapon meleeWeapon;
+
+    /**
+     * Только для изменения (PUT): версия объекта, которую видел клиент, когда открыл форму.
+     * Если объект с тех пор изменили — 409, а не молчаливая перезапись чужих изменений.
+     */
+    public Long version;
 }

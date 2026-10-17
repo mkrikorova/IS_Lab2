@@ -19,7 +19,8 @@ import java.util.List;
 @Path("/operations")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
+// @Consumes — только у POST/PUT: у DELETE тела нет (иначе 415, если клиент
+// прислал Content-Type, отличный от JSON, — так делал JMeter)
 public class SpecialOperationsController {
 
     @Inject
@@ -44,6 +45,7 @@ public class SpecialOperationsController {
     }
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     @Path("/chapters")
     public Response createChapter(@NotNull(message = "Пустое тело запроса") @Valid ChapterDto dto) {
         return Response.status(Response.Status.CREATED).entity(service.createChapter(dto)).build();

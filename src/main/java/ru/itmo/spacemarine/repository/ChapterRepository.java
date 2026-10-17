@@ -2,6 +2,7 @@ package ru.itmo.spacemarine.repository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import ru.itmo.spacemarine.model.Chapter;
 
@@ -31,6 +32,21 @@ public class ChapterRepository {
         return em.merge(chapter); //копирует состояние объекта в управляемую копию
     }
 
+    /**
+     * При сохранении версия увеличивается ВСЕГДА, даже если поля не изменились.
+     * Без этого «сохранение без изменений» не выполняет UPDATE вовсе, версия не проверяется,
+     * и параллельное изменение другого пользователя не обнаруживается (так было в JMeter:
+     * admin1 сохранил исходное health=100, admin2 — 200, оба получили 200).
+     */
+    public void forceVersionIncrement(Object entity) {
+        em.lock(entity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+    }
+
+    /** Выполнить отложенные UPDATE/DELETE сейчас, чтобы конфликт версий проявился внутри метода сервиса. */
+    public void flush() {
+        em.flush();
+    }
+
     public void delete(Chapter chapter) {
         em.remove(em.contains(chapter) ? chapter : em.merge(chapter));
     }
@@ -54,7 +70,9 @@ public class ChapterRepository {
 
     /** Перепривязать всех десантников с одного ордена на другой. */
     public int reassignMarines(Integer fromId, Integer toId) {
-        return em.createQuery("UPDATE SpaceMarine m SET m.chapter = :to WHERE m.chapter.id = :from")
+        // массовый UPDATE идёт в обход @Version — увеличиваем версию явно,
+        // иначе параллельное изменение перепривязанного десантника не заметит конфликта
+        return em.createQuery("UPDATE SpaceMarine m SET m.chapter = :to, m.version = m.version + 1 WHERE m.chapter.id = :from")
                 .setParameter("to", em.getReference(Chapter.class, toId))
                 .setParameter("from", fromId)
                 .executeUpdate();

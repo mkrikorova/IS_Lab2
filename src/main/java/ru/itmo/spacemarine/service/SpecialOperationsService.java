@@ -14,6 +14,7 @@ import ru.itmo.spacemarine.security.UserPrincipal;
 import ru.itmo.spacemarine.service.event.ChangeEvent;
 import ru.itmo.spacemarine.service.exception.BadRequestException;
 
+import ru.itmo.spacemarine.tx.SerializableExecutor;
 import java.util.List;
 
 /** Специальные операции — бизнес-логика вызывает функции БД. */
@@ -21,6 +22,8 @@ import java.util.List;
 @Transactional
 public class SpecialOperationsService {
 
+    @Inject
+    private SerializableExecutor serializable;
     @Inject
     private SpecialOperationsRepository repository;
     @Inject
@@ -50,12 +53,15 @@ public class SpecialOperationsService {
     }
 
     /** Новый орден записывается на текущего пользователя. */
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public ChapterDto createChapter(ChapterDto dto) {
-        UserPrincipal user = access.requireUser();
-        uniqueness.requireChapterNameFree(dto.name, null, "name"); // функция БД уникальность не проверяет
-        int id = repository.createChapter(Names.normalize(dto.name), dto.marinesCount, user.id());
-        events.fire(new ChangeEvent("chapter", ChangeEvent.Action.CREATED, id));
-        return chapterService.findById(id);
+        return serializable.execute("SpecialOperationsService.createChapter", () -> {
+            UserPrincipal user = access.requireUser();
+            uniqueness.requireChapterNameFree(dto.name, null, "name"); // функция БД уникальность не проверяет
+            int id = repository.createChapter(Names.normalize(dto.name), dto.marinesCount, user.id());
+            events.fire(new ChangeEvent("chapter", ChangeEvent.Action.CREATED, id));
+            return chapterService.findById(id);
+        });
     }
 
     /**

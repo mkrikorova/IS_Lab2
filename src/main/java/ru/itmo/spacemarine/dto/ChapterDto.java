@@ -24,4 +24,7 @@ public class ChapterDto {
     @Positive(message = "marinesCount должен быть больше 0")
     @Max(value = 1000, message = "marinesCount не может быть больше 1000")
     public Long marinesCount;
+
+    /** В ответах — текущая версия; в запросе на изменение — версия, которую видел клиент. */
+    public Long version;
 }

@@ -17,6 +17,7 @@ public final class DtoMapper {
         d.id = c.getId();
         d.name = c.getName();
         d.marinesCount = c.getMarinesCount();
+        d.version = c.getVersion();
         if (c.getOwner() != null) {
             d.ownerId = c.getOwner().getId();
             d.ownerLogin = c.getOwner().getLogin();
@@ -30,6 +31,7 @@ public final class DtoMapper {
         d.id = c.getId();
         d.x = c.getX();
         d.y = c.getY();
+        d.version = c.getVersion();
         return d;
     }
 
@@ -44,6 +46,7 @@ public final class DtoMapper {
         d.heartCount = m.getHeartCount();
         d.height = m.getHeight();
         d.meleeWeapon = m.getMeleeWeapon();
+        d.version = m.getVersion();
         return d;
     }
 

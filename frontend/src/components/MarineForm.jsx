@@ -94,6 +94,7 @@ export default function MarineForm({ marine, onClose, onSaved }) {
   const [general, setGeneral] = useState(null);
   const [busy, setBusy] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [changed, setChanged] = useState(false);
   const [allChapters, setChapters] = useState(null); // null — ещё не загружены
   const [coords, setCoords] = useState(null);
   const user = useUser();
@@ -117,6 +118,7 @@ export default function MarineForm({ marine, onClose, onSaved }) {
   useChanges((m) => {
     if (m.entity === 'chapter' || m.entity === 'coordinates' || m.action === 'RECONNECT') loadLists();
     if (editing && m.entity === 'spaceMarine' && m.action === 'DELETED' && m.id === marine.id) setDeleted(true);
+    if (editing && !busy && m.entity === 'spaceMarine' && m.action === 'UPDATED' && m.id === marine.id) setChanged(true);
   });
 
   // Орденов в системе ещё нет — выбирать не из чего, сразу режим «новый»
@@ -148,7 +150,9 @@ export default function MarineForm({ marine, onClose, onSaved }) {
     setBusy(true);
     try {
       const body = toRequest(f);
-      const saved = editing ? await api.marines.update(marine.id, body) : await api.marines.create(body);
+      const saved = editing
+        ? await api.marines.update(marine.id, { ...body, version: marine.version }) // оптимистическая блокировка
+        : await api.marines.create(body);
       onSaved?.(saved);
       onClose();
     } catch (ex) {
@@ -177,6 +181,12 @@ export default function MarineForm({ marine, onClose, onSaved }) {
       }
     >
       {deleted && <ErrorBanner>Этот объект только что удалил другой пользователь.</ErrorBanner>}
+      {changed && !deleted && (
+        <ErrorBanner>
+          Этот объект только что изменил другой пользователь. Сохранить ваши изменения не получится —
+          закройте окно и откройте объект заново.
+        </ErrorBanner>
+      )}
       <ErrorBanner>{general}</ErrorBanner>
 
       <form id="marine-form" onSubmit={submit} noValidate>

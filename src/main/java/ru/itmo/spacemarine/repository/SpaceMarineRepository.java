@@ -2,6 +2,7 @@ package ru.itmo.spacemarine.repository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -30,6 +31,21 @@ public class SpaceMarineRepository {
             return marine;
         }
         return em.merge(marine);
+    }
+
+    /**
+     * При сохранении версия увеличивается ВСЕГДА, даже если поля не изменились.
+     * Без этого «сохранение без изменений» не выполняет UPDATE вовсе, версия не проверяется,
+     * и параллельное изменение другого пользователя не обнаруживается (так было в JMeter:
+     * admin1 сохранил исходное health=100, admin2 — 200, оба получили 200).
+     */
+    public void forceVersionIncrement(Object entity) {
+        em.lock(entity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+    }
+
+    /** Выполнить отложенные UPDATE/DELETE сейчас, чтобы конфликт версий проявился внутри метода сервиса. */
+    public void flush() {
+        em.flush();
     }
 
     public void delete(SpaceMarine marine) {

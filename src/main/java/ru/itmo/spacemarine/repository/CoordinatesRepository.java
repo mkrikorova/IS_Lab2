@@ -2,6 +2,7 @@ package ru.itmo.spacemarine.repository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import ru.itmo.spacemarine.model.Coordinates;
@@ -32,6 +33,21 @@ public class CoordinatesRepository {
         return em.merge(coordinates);
     }
 
+    /**
+     * При сохранении версия увеличивается ВСЕГДА, даже если поля не изменились.
+     * Без этого «сохранение без изменений» не выполняет UPDATE вовсе, версия не проверяется,
+     * и параллельное изменение другого пользователя не обнаруживается (так было в JMeter:
+     * admin1 сохранил исходное health=100, admin2 — 200, оба получили 200).
+     */
+    public void forceVersionIncrement(Object entity) {
+        em.lock(entity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+    }
+
+    /** Выполнить отложенные UPDATE/DELETE сейчас, чтобы конфликт версий проявился внутри метода сервиса. */
+    public void flush() {
+        em.flush();
+    }
+
     public void delete(Coordinates coordinates) {
         em.remove(em.contains(coordinates) ? coordinates : em.merge(coordinates));
     }
@@ -55,7 +71,8 @@ public class CoordinatesRepository {
     }
 
     public int reassignMarines(Integer fromId, Integer toId) {
-        return em.createQuery("UPDATE SpaceMarine m SET m.coordinates = :to WHERE m.coordinates.id = :from")
+        // массовый UPDATE идёт в обход @Version — увеличиваем версию явно
+        return em.createQuery("UPDATE SpaceMarine m SET m.coordinates = :to, m.version = m.version + 1 WHERE m.coordinates.id = :from")
                 .setParameter("to", em.getReference(Coordinates.class, toId))
                 .setParameter("from", fromId)
                 .executeUpdate();

@@ -35,6 +35,15 @@ public class Chapter {
     @JoinColumn(name = "owner_id", nullable = false)
     private AppUser owner;
 
+    /**
+     * Версия для оптимистической блокировки: EclipseLink пишет UPDATE/DELETE ... WHERE version = ?
+     * и увеличивает её при каждом изменении. Если строку успел изменить или удалить другой
+     * пользователь, условие не выполнится -> OptimisticLockException -> 409.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     public Chapter() {
     }
 
@@ -55,4 +64,6 @@ public class Chapter {
 
     public AppUser getOwner() { return owner; }
     public void setOwner(AppUser owner) { this.owner = owner; }
+
+    public long getVersion() { return version; }
 }

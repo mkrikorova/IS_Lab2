@@ -22,6 +22,15 @@ public class Coordinates {
     @Column(name = "y", nullable = false)
     private Double y;
 
+    /**
+     * Версия для оптимистической блокировки: EclipseLink пишет UPDATE/DELETE ... WHERE version = ?
+     * и увеличивает её при каждом изменении. Если строку успел изменить или удалить другой
+     * пользователь, условие не выполнится -> OptimisticLockException -> 409.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     public Coordinates() {
     }
 
@@ -38,4 +47,6 @@ public class Coordinates {
 
     public Double getY() { return y; }
     public void setY(Double y) { this.y = y; }
+
+    public long getVersion() { return version; }
 }

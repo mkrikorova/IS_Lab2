@@ -17,6 +17,7 @@ import ru.itmo.spacemarine.service.exception.BadRequestException;
 import ru.itmo.spacemarine.service.exception.ConflictException;
 import ru.itmo.spacemarine.service.exception.NotFoundException;
 
+import ru.itmo.spacemarine.tx.SerializableExecutor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,8 @@ public class SpaceMarineService {
     private static final String ENTITY = "spaceMarine";
     private static final int MAX_PAGE_SIZE = 100;
 
+    @Inject
+    private SerializableExecutor serializable;
     @Inject
     private SpaceMarineRepository marines;
     @Inject
@@ -60,16 +63,19 @@ public class SpaceMarineService {
         return DtoMapper.toDto(get(id));
     }
 
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public SpaceMarineDto create(SpaceMarineRequest req) {
-        access.requireUser();
-        SpaceMarine m = new SpaceMarine();
-        apply(m, req);
-        uniqueness.findDuplicate(m, null).ifPresent(d -> {
-            throw duplicateOf(d);
+        return serializable.execute("SpaceMarineService.create", () -> {
+            access.requireUser();
+            SpaceMarine m = new SpaceMarine();
+            apply(m, req);
+            uniqueness.findDuplicate(m, null).ifPresent(d -> {
+                throw duplicateOf(d);
+            });
+            marines.save(m);
+            events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.CREATED, m.getId()));
+            return DtoMapper.toDto(m);
         });
-        marines.save(m);
-        events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.CREATED, m.getId()));
-        return DtoMapper.toDto(m);
     }
 
     /**
@@ -94,22 +100,29 @@ public class SpaceMarineService {
     public record ImportOutcome(SpaceMarine marine, boolean created) {
     }
 
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public SpaceMarineDto update(Integer id, SpaceMarineRequest req) {
-        SpaceMarine m = get(id); // вернул управляемый объект
-        access.requireManage(m); // править можно только своих десантников (ADMIN — любых)
-        apply(m, req); // id и creationDate не меняются
-        // после изменения десантник не должен совпасть с другим (сам с собой — можно)
-        uniqueness.findDuplicate(m, id).ifPresent(d -> {
-            throw duplicateOf(d);
+        return serializable.execute("SpaceMarineService.update", () -> {
+            SpaceMarine m = get(id); // вернул управляемый объект
+            access.requireManage(m); // править можно только своих десантников (ADMIN — любых)
+            Versions.require(req.version, m.getVersion(), "этого десантника");
+            marines.forceVersionIncrement(m);
+            apply(m, req); // id и creationDate не меняются
+            // после изменения десантник не должен совпасть с другим (сам с собой — можно)
+            uniqueness.findDuplicate(m, id).ifPresent(d -> {
+                throw duplicateOf(d);
+            });
+            marines.flush(); // UPDATE ... WHERE version = ? — конфликт проявится здесь
+            events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
+            return DtoMapper.toDto(m);
         });
-        events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
-        return DtoMapper.toDto(m);
     }
 
     public void delete(Integer id) {
         SpaceMarine m = get(id);
         access.requireManage(m);
         marines.delete(m);
+        marines.flush(); // DELETE ... WHERE version = ? — если объект успели изменить, будет 409
         events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.DELETED, id));
     }
 

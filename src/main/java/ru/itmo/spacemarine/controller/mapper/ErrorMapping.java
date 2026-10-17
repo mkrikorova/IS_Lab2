@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.WebApplicationException;
 import ru.itmo.spacemarine.dto.ErrorDto;
 import ru.itmo.spacemarine.service.exception.*;
+import ru.itmo.spacemarine.tx.IsolationSupport;
 
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -59,11 +60,22 @@ public final class ErrorMapping {
             if (t instanceof LinkedObjectsException l) {
                 return new ErrorDto(409, l.getMessage(), List.of("linkedCount: " + l.getLinkedCount()));
             }
+            if (t.getClass().getSimpleName().contains("OptimisticLock")) {
+                // @Version: строку между чтением и записью изменили или удалили в другой транзакции
+                return new ErrorDto(409, "Объект изменён или удалён другим пользователем. "
+                        + "Обновите данные и повторите действие", null);
+            }
             if (t instanceof SQLException sql && sql.getSQLState() != null) {
                 return fromSql(sql);
             }
         }
-        LOG.log(Level.SEVERE, "Unexpected error", e);
+        if (IsolationSupport.isRetryable(e)) {
+            // транзакцию отменили из-за параллельной (в т.ч. при коммите) и повторы не помогли
+            LOG.log(Level.WARNING, "Конфликт одновременных изменений: " + IsolationSupport.describe(e), e);
+            return new ErrorDto(409, "Конфликт одновременных изменений: операцию не удалось выполнить. "
+                    + "Повторите её", null);
+        }
+        LOG.log(Level.SEVERE, "Unexpected error: " + IsolationSupport.describe(e), e);
         return new ErrorDto(500, "Внутренняя ошибка сервера", null);
     }
 
@@ -94,6 +106,8 @@ public final class ErrorMapping {
             case "23502", "23514", "22023", "22003", "P0001" ->
                     new ErrorDto(400, "Данные не прошли проверку в БД", List.of(msg));        // not null / check / raise
             case "P0002" -> new ErrorDto(404, msg, null);                                        // raise ... 'P0002'
+            case "40001", "40P01" -> new ErrorDto(409, "Конфликт одновременных изменений: операцию не удалось "
+                    + "выполнить даже после повторов. Повторите её", List.of(msg));            // serialization / deadlock
             default -> {
                 LOG.log(Level.SEVERE, "SQL error " + state, e);
                 yield new ErrorDto(500, "Ошибка базы данных", List.of(msg));

@@ -57,6 +57,15 @@ public class SpaceMarine {
     @Column(name = "melee_weapon", length = 20)
     private MeleeWeapon meleeWeapon;
 
+    /**
+     * Версия для оптимистической блокировки: EclipseLink пишет UPDATE/DELETE ... WHERE version = ?
+     * и увеличивает её при каждом изменении. Если строку успел изменить или удалить другой
+     * пользователь, условие не выполнится -> OptimisticLockException -> 409.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     @PrePersist
     void onCreate() {
         if (creationDate == null) {
@@ -90,4 +99,6 @@ public class SpaceMarine {
 
     public MeleeWeapon getMeleeWeapon() { return meleeWeapon; }
     public void setMeleeWeapon(MeleeWeapon meleeWeapon) { this.meleeWeapon = meleeWeapon; }
+
+    public long getVersion() { return version; }
 }

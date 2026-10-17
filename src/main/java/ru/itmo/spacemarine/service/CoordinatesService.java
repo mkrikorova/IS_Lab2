@@ -14,6 +14,7 @@ import ru.itmo.spacemarine.service.exception.BadRequestException;
 import ru.itmo.spacemarine.service.exception.LinkedObjectsException;
 import ru.itmo.spacemarine.service.exception.NotFoundException;
 
+import ru.itmo.spacemarine.tx.SerializableExecutor;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,8 @@ public class CoordinatesService {
 
     private static final String ENTITY = "coordinates";
 
+    @Inject
+    private SerializableExecutor serializable;
     @Inject
     private CoordinatesRepository repository;
 
@@ -47,10 +50,13 @@ public class CoordinatesService {
     }
 
     /** Явное создание точки (страница «Координаты»): занятая пара (x, y) — ошибка 409. */
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public CoordinatesDto create(CoordinatesDto dto) {
-        access.requireUser();
-        uniqueness.requireCoordinatesFree(dto.x, dto.y, null);
-        return DtoMapper.toDto(insert(dto));
+        return serializable.execute("CoordinatesService.create", () -> {
+            access.requireUser();
+            uniqueness.requireCoordinatesFree(dto.x, dto.y, null);
+            return DtoMapper.toDto(insert(dto));
+        });
     }
 
     /**
@@ -70,14 +76,20 @@ public class CoordinatesService {
         return saved;
     }
 
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public CoordinatesDto update(Integer id, CoordinatesDto dto) {
-        access.requireAdmin("Изменять координаты");
-        Coordinates c = get(id);
-        uniqueness.requireCoordinatesFree(dto.x, dto.y, id);
-        c.setX(dto.x);
-        c.setY(UniquenessService.normalizeY(dto.y));
-        events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
-        return DtoMapper.toDto(c);
+        return serializable.execute("CoordinatesService.update", () -> {
+            access.requireAdmin("Изменять координаты");
+            Coordinates c = get(id);
+            Versions.require(dto.version, c.getVersion(), "эти координаты");
+            repository.forceVersionIncrement(c);
+            uniqueness.requireCoordinatesFree(dto.x, dto.y, id);
+            c.setX(dto.x);
+            c.setY(UniquenessService.normalizeY(dto.y));
+            repository.flush();
+            events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
+            return DtoMapper.toDto(c);
+        });
     }
 
     public void delete(Integer id, Integer reassignToId) {
@@ -97,6 +109,7 @@ public class CoordinatesService {
             events.fire(new ChangeEvent("spaceMarine", ChangeEvent.Action.UPDATED, null));
         }
         repository.delete(c);
+        repository.flush();
         events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.DELETED, id));
     }
 

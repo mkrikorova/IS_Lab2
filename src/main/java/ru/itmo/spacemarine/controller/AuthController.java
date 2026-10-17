@@ -24,7 +24,8 @@ import ru.itmo.spacemarine.service.exception.NotAuthenticatedException;
 @Path("/auth")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
+// @Consumes — только у методов с телом: у DELETE и logout тела нет, и требовать
+// от них Content-Type: application/json нельзя (JMeter получал 415)
 public class AuthController {
 
     @Inject
@@ -33,12 +34,14 @@ public class AuthController {
     private CurrentUser currentUser;
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     @Path("/register")
     public Response register(@NotNull(message = "Пустое тело запроса") @Valid RegisterRequest req) {
         return Response.status(Response.Status.CREATED).entity(auth.register(req)).build();
     }
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     @Path("/login")
     public AuthResponse login(@NotNull(message = "Пустое тело запроса") @Valid LoginRequest req) {
         return auth.login(req);

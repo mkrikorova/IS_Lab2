@@ -123,7 +123,9 @@ function HelperForm({ config, item, onClose, onSaved }) {
     setBusy(true);
     try {
       const body = config.toBody(form);
-      if (item) await config.api.update(item.id, body);
+      // версия, которую пользователь видел при открытии формы: если объект с тех пор
+      // изменил кто-то другой, сервер ответит 409 вместо молчаливой перезаписи
+      if (item) await config.api.update(item.id, { ...body, version: item.version });
       else await config.api.create(body);
       onSaved();
       onClose();

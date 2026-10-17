@@ -12,4 +12,7 @@ public class CoordinatesDto {
     @NotNull(message = "y обязателен")
     @DecimalMin(value = "-833", inclusive = false, message = "y должен быть больше -833")
     public Double y;
+
+    /** В ответах — текущая версия; в запросе на изменение — версия, которую видел клиент. */
+    public Long version;
 }

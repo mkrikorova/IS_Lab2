@@ -17,6 +17,7 @@ import ru.itmo.spacemarine.service.exception.ConflictException;
 import ru.itmo.spacemarine.service.exception.LinkedObjectsException;
 import ru.itmo.spacemarine.service.exception.NotFoundException;
 
+import ru.itmo.spacemarine.tx.SerializableExecutor;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,8 @@ public class ChapterService {
 
     private static final String ENTITY = "chapter";
 
+    @Inject
+    private SerializableExecutor serializable;
     @Inject
     private ChapterRepository repository;
     @Inject
@@ -49,10 +52,13 @@ public class ChapterService {
      * Явное создание ордена (страница «Ордены»): занятое название — ошибка 409.
      * Владельцем нового ордена становится тот, кто его создал.
      */
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public ChapterDto create(ChapterDto dto) {
-        UserPrincipal user = access.requireUser();
-        uniqueness.requireChapterNameFree(dto.name, null, "name");
-        return DtoMapper.toDto(insert(dto, user));
+        return serializable.execute("ChapterService.create", () -> {
+            UserPrincipal user = access.requireUser();
+            uniqueness.requireChapterNameFree(dto.name, null, "name");
+            return DtoMapper.toDto(insert(dto, user));
+        });
     }
 
     /**
@@ -103,14 +109,20 @@ public class ChapterService {
         return prefix == null ? null : prefix + name;
     }
 
+    @Transactional(Transactional.TxType.NOT_SUPPORTED) // транзакцию SERIALIZABLE открывает executor
     public ChapterDto update(Integer id, ChapterDto dto) {
-        Chapter c = get(id);
-        access.requireManage(c);
-        uniqueness.requireChapterNameFree(dto.name, id, "name");
-        c.setName(Names.normalize(dto.name));
-        c.setMarinesCount(dto.marinesCount);
-        events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
-        return DtoMapper.toDto(c);
+        return serializable.execute("ChapterService.update", () -> {
+            Chapter c = get(id);
+            access.requireManage(c);
+            Versions.require(dto.version, c.getVersion(), "этот орден");
+            repository.forceVersionIncrement(c);
+            uniqueness.requireChapterNameFree(dto.name, id, "name");
+            c.setName(Names.normalize(dto.name));
+            c.setMarinesCount(dto.marinesCount);
+            repository.flush(); // конфликт версии — здесь, а не при коммите
+            events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.UPDATED, id));
+            return DtoMapper.toDto(c);
+        });
     }
 
     /**
@@ -135,6 +147,7 @@ public class ChapterService {
             events.fire(new ChangeEvent("spaceMarine", ChangeEvent.Action.UPDATED, null));
         }
         repository.delete(c);
+        repository.flush();
         events.fire(new ChangeEvent(ENTITY, ChangeEvent.Action.DELETED, id));
     }
 

@@ -1,0 +1,161 @@
+@startuml classes-all
+title SpaceMarine — диаграмма классов бэкенда (ru.itmo.spacemarine)
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 30
+skinparam ranksep 55
+skinparam class {
+  BackgroundColor #FDFDFB
+  BorderColor #555555
+}
+skinparam package {
+  BackgroundColor #F6F5F1
+  BorderColor #777777
+}
+hide members
+hide circle
+allowmixing
+
+package config {
+  class RestConfig <<@ApplicationPath>>
+  class DataSourceConfig <<@DataSourceDefinition>>
+  class CorsFilter <<@Provider>>
+}
+
+package controller {
+  class SpaceMarineController <<REST>>
+  class ChapterController <<REST>>
+  class CoordinatesController <<REST>>
+  class SpecialOperationsController <<REST>>
+  package mapper {
+    class GlobalExceptionMapper <<@Provider>>
+    class ValidationExceptionMapper <<@Provider>>
+  }
+}
+
+package websocket {
+  class ChangesEndpoint <<@ServerEndpoint>>
+  class SessionRegistry
+  class ChangeBroadcaster
+}
+
+package service {
+  class SpaceMarineService <<@Transactional>>
+  class ChapterService <<@Transactional>>
+  class CoordinatesService <<@Transactional>>
+  class SpecialOperationsService <<@Transactional>>
+  package event {
+    class ChangeEvent <<record>>
+    enum Action
+  }
+  package exception {
+    class NotFoundException
+    class BadRequestException
+    class LinkedObjectsException
+  }
+}
+
+package repository {
+  class SpaceMarineRepository
+  class ChapterRepository
+  class CoordinatesRepository
+  class SpecialOperationsRepository
+}
+
+package dto {
+  class SpaceMarineDto
+  class SpaceMarineRequest
+  class SpaceMarineFilter
+  class ChapterDto
+  class CoordinatesDto
+  class "PageDto<T>" as PageDto
+  class WeaponGroupDto
+  class ErrorDto
+  class DtoMapper <<utility>>
+}
+
+package model {
+  class SpaceMarine <<Entity>>
+  class Coordinates <<Entity>>
+  class Chapter <<Entity>>
+  enum MeleeWeapon
+  class ZonedDateTimeConverter <<Converter>>
+}
+
+database "PostgreSQL\n(функции sm_*)" as DB
+
+' ---------- controller -> service ----------
+SpaceMarineController --> SpaceMarineService
+ChapterController --> ChapterService
+CoordinatesController --> CoordinatesService
+SpecialOperationsController --> SpecialOperationsService
+
+' ---------- service -> service / repository ----------
+SpaceMarineService --> ChapterService
+SpaceMarineService --> CoordinatesService
+SpecialOperationsService --> ChapterService
+SpaceMarineService --> SpaceMarineRepository
+SpaceMarineService --> ChapterRepository
+SpaceMarineService --> CoordinatesRepository
+ChapterService --> ChapterRepository
+CoordinatesService --> CoordinatesRepository
+SpecialOperationsService --> SpecialOperationsRepository
+
+' ---------- repository -> model / БД ----------
+SpaceMarineRepository ..> SpaceMarine
+ChapterRepository ..> Chapter
+CoordinatesRepository ..> Coordinates
+SpecialOperationsRepository ..> DB : native query
+
+' ---------- model ----------
+SpaceMarine "0..*" --> "1" Coordinates
+SpaceMarine "0..*" --> "1" Chapter
+SpaceMarine --> "0..1" MeleeWeapon
+SpaceMarine ..> ZonedDateTimeConverter
+
+' ---------- dto ----------
+SpaceMarineDto *-- CoordinatesDto
+SpaceMarineDto *-- ChapterDto
+SpaceMarineRequest o-- CoordinatesDto
+SpaceMarineRequest o-- ChapterDto
+PageDto o-- SpaceMarineDto
+DtoMapper ..> SpaceMarine
+DtoMapper ..> SpaceMarineDto
+
+' ---------- события и WebSocket ----------
+ChangeEvent +-- Action
+SpaceMarineService ..> ChangeEvent : <<fire>>
+ChapterService ..> ChangeEvent : <<fire>>
+CoordinatesService ..> ChangeEvent : <<fire>>
+SpecialOperationsService ..> ChangeEvent : <<fire>>
+ChangeBroadcaster ..> ChangeEvent : <<observe>>
+ChangeBroadcaster --> SessionRegistry
+ChangesEndpoint --> SessionRegistry
+
+' ---------- ошибки ----------
+SpaceMarineService ..> NotFoundException : <<throw>>
+SpaceMarineService ..> BadRequestException : <<throw>>
+ChapterService ..> LinkedObjectsException : <<throw>>
+CoordinatesService ..> LinkedObjectsException : <<throw>>
+GlobalExceptionMapper ..> ValidationExceptionMapper
+GlobalExceptionMapper ..> ErrorDto : <<create>>
+ValidationExceptionMapper ..> ErrorDto : <<create>>
+
+' ---------- раскладка по слоям (невидимые связи) ----------
+SpaceMarineController -[hidden]down- SpaceMarineService
+SpaceMarineRepository -[hidden]down- SpaceMarine
+ChangesEndpoint -[hidden]right- RestConfig
+
+' ---------- конфигурация ----------
+DataSourceConfig ..> DB : DataSource
+
+legend right
+  Сплошная стрелка — ассоциация (@Inject / ссылка на объект)
+  Пунктир — зависимость: <<fire>> отправка CDI-события,
+  <<observe>> подписка, <<throw>> выброс исключения
+  GlobalExceptionMapper переводит исключения в ErrorDto
+  (NotFound → 404, BadRequest → 400, LinkedObjects → 409)
+endlegend
+
+@enduml

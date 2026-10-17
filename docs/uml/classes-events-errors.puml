@@ -1,0 +1,133 @@
+@startuml classes-events-errors
+title SpaceMarine — события, WebSocket, обработка ошибок и конфигурация
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FDFDFB
+  BorderColor #555555
+}
+hide empty members
+
+package "ru.itmo.spacemarine.service" as service {
+  class SpaceMarineService <<@Transactional>>
+  class ChapterService <<@Transactional>>
+  class CoordinatesService <<@Transactional>>
+  class SpecialOperationsService <<@Transactional>>
+
+  package "event" {
+    class ChangeEvent <<record>> {
+      + entity : String
+      + action : Action
+      + id : Integer
+    }
+    enum Action {
+      CREATED
+      UPDATED
+      DELETED
+    }
+  }
+
+  package "exception" {
+    class NotFoundException
+    class BadRequestException
+    class LinkedObjectsException {
+      - linkedCount : long
+      + getLinkedCount() : long
+    }
+  }
+}
+
+package "ru.itmo.spacemarine.websocket" as websocket {
+  class ChangeBroadcaster <<@ApplicationScoped>> {
+    + onChange(@Observes(AFTER_SUCCESS) e : ChangeEvent) : void
+  }
+  class SessionRegistry <<@ApplicationScoped>> {
+    - sessions : Set<Session>
+    + add(s : Session) : void
+    + remove(s : Session) : void
+    + size() : int
+    + broadcast(message : String) : void
+  }
+  class ChangesEndpoint <<@ServerEndpoint("/ws/changes")>> {
+    + onOpen(s : Session) : void
+    + onClose(s : Session, r : CloseReason) : void
+    + onError(s : Session, e : Throwable) : void
+  }
+}
+
+package "ru.itmo.spacemarine.controller.mapper" as mapper {
+  class GlobalExceptionMapper <<@Provider>> {
+    + toResponse(e : Throwable) : Response
+    - fromSql(e : SQLException) : Response
+  }
+  class ValidationExceptionMapper <<@Provider>> {
+    + toResponse(e : ConstraintViolationException) : Response
+    ~ {static} build(e : ConstraintViolationException) : Response
+  }
+}
+
+package "ru.itmo.spacemarine.dto" as dto {
+  class ErrorDto {
+    + status : int
+    + message : String
+    + details : List<String>
+  }
+}
+
+package "ru.itmo.spacemarine.config" as config {
+  class RestConfig <<@ApplicationPath("/api")>>
+  class DataSourceConfig <<@DataSourceDefinition>> {
+    name = "java:app/jdbc/studs"
+  }
+  class CorsFilter <<@Provider>> {
+    + filter(req, res) : void
+  }
+}
+
+class RuntimeException <<java.lang>>
+interface "ExceptionMapper<T>" as ExceptionMapper <<jakarta.ws.rs.ext>>
+class "Application" as Application <<jakarta.ws.rs.core>>
+interface ContainerResponseFilter <<jakarta.ws.rs.container>>
+
+' --- события ---
+ChangeEvent +-- Action
+SpaceMarineService ..> ChangeEvent : <<fire>>
+ChapterService ..> ChangeEvent : <<fire>>
+CoordinatesService ..> ChangeEvent : <<fire>>
+SpecialOperationsService ..> ChangeEvent : <<fire>>
+ChangeBroadcaster ..> ChangeEvent : <<observe>>
+ChangeBroadcaster --> SessionRegistry : @Inject
+ChangesEndpoint --> SessionRegistry : @Inject
+
+' --- ошибки ---
+NotFoundException --|> RuntimeException
+BadRequestException --|> RuntimeException
+LinkedObjectsException --|> RuntimeException
+SpaceMarineService ..> NotFoundException : <<throw>>
+SpaceMarineService ..> BadRequestException : <<throw>>
+ChapterService ..> LinkedObjectsException : <<throw>>
+CoordinatesService ..> LinkedObjectsException : <<throw>>
+GlobalExceptionMapper ..|> ExceptionMapper
+ValidationExceptionMapper ..|> ExceptionMapper
+GlobalExceptionMapper ..> NotFoundException : 404
+GlobalExceptionMapper ..> BadRequestException : 400
+GlobalExceptionMapper ..> LinkedObjectsException : 409
+GlobalExceptionMapper ..> ValidationExceptionMapper : build()
+GlobalExceptionMapper ..> ErrorDto : <<create>>
+ValidationExceptionMapper ..> ErrorDto : <<create>>
+
+' --- конфигурация ---
+RestConfig --|> Application
+CorsFilter ..|> ContainerResponseFilter
+
+note right of ChangeBroadcaster
+  Вызывается только после успешного
+  коммита транзакции: при откате
+  клиенты уведомление не получают
+end note
+
+@enduml

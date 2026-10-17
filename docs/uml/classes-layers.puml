@@ -1,0 +1,146 @@
+@startuml classes-layers
+title SpaceMarine — слои бэкенда: controller → service → repository
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FDFDFB
+  BorderColor #555555
+}
+hide empty members
+
+' ===================== controller =====================
+package "ru.itmo.spacemarine.controller" as controller {
+  class SpaceMarineController <<@Path("/space-marines")>> {
+    + list(filter : SpaceMarineFilter) : PageDto<SpaceMarineDto>
+    + get(id : Integer) : SpaceMarineDto
+    + create(request : SpaceMarineRequest) : Response
+    + update(id : Integer, request : SpaceMarineRequest) : SpaceMarineDto
+    + delete(id : Integer) : Response
+  }
+  class ChapterController <<@Path("/chapters")>> {
+    + list() : List<ChapterDto>
+    + get(id : Integer) : ChapterDto
+    + create(dto : ChapterDto) : Response
+    + update(id : Integer, dto : ChapterDto) : ChapterDto
+    + delete(id : Integer, reassignTo : Integer) : Response
+  }
+  class CoordinatesController <<@Path("/coordinates")>> {
+    + list() : List<CoordinatesDto>
+    + get(id : Integer) : CoordinatesDto
+    + create(dto : CoordinatesDto) : Response
+    + update(id : Integer, dto : CoordinatesDto) : CoordinatesDto
+    + delete(id : Integer, reassignTo : Integer) : Response
+  }
+  class SpecialOperationsController <<@Path("/operations")>> {
+    + sumHeartCount() : JsonObject
+    + groupByMeleeWeapon() : List<WeaponGroupDto>
+    + findByName(substring : String) : List<SpaceMarineDto>
+    + createChapter(dto : ChapterDto) : Response
+    + disbandChapter(id : int) : JsonObject
+  }
+
+}
+
+' ===================== service =====================
+package "ru.itmo.spacemarine.service" as service {
+  class SpaceMarineService <<@ApplicationScoped>> <<@Transactional>> {
+    + findPage(f : SpaceMarineFilter) : PageDto<SpaceMarineDto>
+    + findById(id : Integer) : SpaceMarineDto
+    + create(req : SpaceMarineRequest) : SpaceMarineDto
+    + update(id : Integer, req : SpaceMarineRequest) : SpaceMarineDto
+    + delete(id : Integer) : void
+    - resolveCoordinates(req) : Coordinates
+    - resolveChapter(req) : Chapter
+  }
+  class ChapterService <<@ApplicationScoped>> <<@Transactional>> {
+    + findAll() : List<ChapterDto>
+    + findById(id : Integer) : ChapterDto
+    + create(dto : ChapterDto) : ChapterDto
+    + update(id : Integer, dto : ChapterDto) : ChapterDto
+    + delete(id : Integer, reassignToId : Integer) : void
+    + get(id : Integer) : Chapter
+  }
+  class CoordinatesService <<@ApplicationScoped>> <<@Transactional>> {
+    + findAll() : List<CoordinatesDto>
+    + findById(id : Integer) : CoordinatesDto
+    + create(dto : CoordinatesDto) : CoordinatesDto
+    + update(id : Integer, dto : CoordinatesDto) : CoordinatesDto
+    + delete(id : Integer, reassignToId : Integer) : void
+    + get(id : Integer) : Coordinates
+  }
+  class SpecialOperationsService <<@ApplicationScoped>> <<@Transactional>> {
+    + sumHeartCount() : long
+    + groupByMeleeWeapon() : List<WeaponGroupDto>
+    + findByNameSubstring(s : String) : List<SpaceMarineDto>
+    + createChapter(dto : ChapterDto) : ChapterDto
+    + disbandChapter(chapterId : int) : int
+  }
+
+}
+
+' ===================== repository =====================
+package "ru.itmo.spacemarine.repository" as repository {
+  class SpaceMarineRepository <<@ApplicationScoped>> {
+    - em : EntityManager
+    + findById(id : Integer) : Optional<SpaceMarine>
+    + save(m : SpaceMarine) : SpaceMarine
+    + delete(m : SpaceMarine) : void
+    + findPage(f : SpaceMarineFilter) : List<SpaceMarine>
+    + count(f : SpaceMarineFilter) : long
+  }
+  class ChapterRepository <<@ApplicationScoped>> {
+    - em : EntityManager
+    + findById(id : Integer) : Optional<Chapter>
+    + findAll() : List<Chapter>
+    + save(c : Chapter) : Chapter
+    + delete(c : Chapter) : void
+    + countMarines(chapterId : Integer) : long
+    + reassignMarines(fromId : Integer, toId : Integer) : int
+  }
+  class CoordinatesRepository <<@ApplicationScoped>> {
+    - em : EntityManager
+    + findById(id : Integer) : Optional<Coordinates>
+    + findAll() : List<Coordinates>
+    + save(c : Coordinates) : Coordinates
+    + delete(c : Coordinates) : void
+    + countMarines(coordinatesId : Integer) : long
+    + reassignMarines(fromId : Integer, toId : Integer) : int
+  }
+  class SpecialOperationsRepository <<@ApplicationScoped>> {
+    - em : EntityManager
+    + sumHeartCount() : long
+    + groupByMeleeWeapon() : List<Object[]>
+    + findByNameSubstring(s : String) : List<SpaceMarine>
+    + createChapter(name : String, marinesCount : long) : int
+    + disbandChapter(chapterId : int) : int
+  }
+}
+
+' ===================== связи =====================
+SpaceMarineController --> SpaceMarineService : @Inject
+ChapterController --> ChapterService : @Inject
+CoordinatesController --> CoordinatesService : @Inject
+SpecialOperationsController --> SpecialOperationsService : @Inject
+
+SpaceMarineService --> SpaceMarineRepository
+SpaceMarineService --> ChapterRepository
+SpaceMarineService --> CoordinatesRepository
+SpaceMarineService --> ChapterService
+SpaceMarineService --> CoordinatesService
+ChapterService --> ChapterRepository
+CoordinatesService --> CoordinatesRepository
+SpecialOperationsService --> SpecialOperationsRepository
+SpecialOperationsService --> ChapterService
+
+note bottom of SpecialOperationsRepository
+  native query:
+  sm_sum_heart_count(), sm_group_by_melee_weapon(),
+  sm_find_by_name_substring(), sm_create_chapter(),
+  sm_disband_chapter()
+end note
+
+@enduml

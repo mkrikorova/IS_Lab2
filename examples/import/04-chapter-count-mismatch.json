@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Good one",
+    "coordinates": { "x": 7, "y": 7 },
+    "chapter": { "name": "Mismatch", "marinesCount": 100 },
+    "health": 10, "height": 180
+  },
+  {
+    "name": "Bad one",
+    "coordinates": { "x": 8, "y": 8 },
+    "chapter": { "name": "MISMATCH", "marinesCount": 200 },
+    "health": 10, "height": 180
+  }
+]

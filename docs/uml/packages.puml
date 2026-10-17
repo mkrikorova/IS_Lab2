@@ -1,0 +1,61 @@
+@startuml packages
+title SpaceMarine — диаграмма пакетов
+
+skinparam packageStyle folder
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #444444
+skinparam package {
+  BackgroundColor #FDFDFB
+  BorderColor #555555
+}
+
+package "frontend (React + Vite)" as FE <<SPA>> {
+  package pages
+  package components
+  package core
+  note right of core : api.js — REST-запросы\nlive.js — WebSocket\nvalidation.js — проверка полей
+}
+
+package "ru.itmo.spacemarine (Jakarta EE 10, Payara Micro)" as BE {
+  package "config" as config
+  package "controller" as controller {
+    package "mapper" as mapper
+  }
+  package "websocket" as websocket
+  package "service" as service {
+    package "event" as event
+    package "exception" as exception
+  }
+  package "repository" as repository
+  package "dto" as dto
+  package "model" as model
+}
+
+database "PostgreSQL (pg / studs)\nschema.sql: таблицы + функции" as DB
+
+' --- фронтенд ---
+pages ..> components : <<use>>
+pages ..> core : <<use>>
+components ..> core : <<use>>
+core ..> controller : HTTP / JSON\n/api/*
+core ..> websocket : WebSocket\n/ws/changes
+
+' --- бэкенд ---
+controller ..> service : <<use>>
+controller ..> dto : <<use>>
+mapper ..> exception : <<use>>
+mapper ..> dto : <<use>>
+service ..> repository : <<use>>
+service ..> dto : <<use>>
+service ..> model : <<use>>
+service ..> event : <<fire>>
+service ..> exception : <<throw>>
+websocket ..> event : <<observe>>
+repository ..> model : <<use>>
+repository ..> dto : <<use>>
+dto ..> model : <<use>>
+repository ..> DB : JPA (EclipseLink)\nnative query → функции БД
+config ..> DB : DataSource\njava:app/jdbc/studs
+
+@enduml

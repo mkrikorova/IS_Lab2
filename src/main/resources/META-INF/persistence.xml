@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"
+             version="3.0">
+    <persistence-unit name="spacemarinePU" transaction-type="JTA">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <!-- JNDI-имя из config/DataSourceConfig (или ваше существующее) -->
+        <jta-data-source>java:app/jdbc/studs</jta-data-source>
+
+        <class>ru.itmo.spacemarine.model.AppUser</class>
+        <class>ru.itmo.spacemarine.model.AuthSession</class>
+        <class>ru.itmo.spacemarine.model.Chapter</class>
+        <class>ru.itmo.spacemarine.model.ImportOperation</class>
+        <class>ru.itmo.spacemarine.model.Coordinates</class>
+        <class>ru.itmo.spacemarine.model.SpaceMarine</class>
+        <class>ru.itmo.spacemarine.model.ZonedDateTimeConverter</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+        <!-- функции БД меняют данные в обход EclipseLink, поэтому общий кэш выключен -->
+        <shared-cache-mode>NONE</shared-cache-mode>
+        <validation-mode>CALLBACK</validation-mode>
+
+        <properties>
+            <property name="eclipselink.target-database" value="PostgreSQL"/>
+            <!-- таблицы создаёт schema.sql, EclipseLink их не трогает -->
+            <property name="jakarta.persistence.schema-generation.database.action" value="none"/>
+            <property name="eclipselink.logging.level.sql" value="FINE"/>
+            <property name="eclipselink.logging.parameters" value="true"/>
+        </properties>
+    </persistence-unit>
+</persistence>

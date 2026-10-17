@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Ok",
+    "coordinates": { "x": 1, "y": 1 },
+    "chapter": { "name": "Test chapter", "marinesCount": 10 },
+    "health": 10, "height": 180
+  },
+  {
+    "name": "",
+    "coordinates": { "x": 1, "y": -900 },
+    "chapter": { "name": "Test chapter", "marinesCount": 10 },
+    "health": -5, "heartCount": 4, "height": 180
+  },
+  {
+    "id": 77,
+    "name": "Wrong types",
+    "coordinates": { "x": 1.5, "y": "high" },
+    "chapter": { "name": "Test chapter", "marinesCount": 5000 },
+    "health": "full", "height": 180, "meleeWeapon": "LASER"
+  },
+  {
+    "name": "No chapter",
+    "coordinates": { "x": 2, "y": 2 },
+    "health": 10, "height": 180
+  }
+]

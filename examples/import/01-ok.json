@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Titus",
+    "coordinates": { "x": 10, "y": 20.5 },
+    "chapter": { "name": "Ultramarines", "marinesCount": 700 },
+    "health": 100, "heartCount": 2, "height": 190, "meleeWeapon": "POWER_SWORD"
+  },
+  {
+    "name": "Leandros",
+    "coordinates": { "x": 10, "y": 20.5 },
+    "chapter": { "name": "ULTRAMARINES", "marinesCount": 700 },
+    "health": 80, "heartCount": 2, "height": 185, "meleeWeapon": "CHAIN_SWORD"
+  },
+  {
+    "name": "Cato Sicarius",
+    "coordinates": { "x": -40, "y": 0 },
+    "chapter": { "name": "Ultramarines", "marinesCount": 700 },
+    "health": 120, "heartCount": 3, "height": 200, "meleeWeapon": "POWER_FIST"
+  },
+  {
+    "name": "Ragnar",
+    "coordinates": { "x": 300, "y": -100.25 },
+    "chapter": { "name": "Space Wolves", "marinesCount": 900 },
+    "health": 110, "heartCount": null, "height": 195, "meleeWeapon": "CHAIN_AXE"
+  },
+  {
+    "name": "Unnamed scout",
+    "coordinates": { "x": 300, "y": -100.25 },
+    "chapter": { "name": "Space Wolves", "marinesCount": 900 },
+    "health": 40, "height": 170
+  }
+]

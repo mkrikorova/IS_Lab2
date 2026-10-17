@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>WS test</title></head>
+<body style="font-family: monospace">
+<h3>Уведомления об изменениях</h3>
+<div id="status">подключение…</div>
+<ol id="log"></ol>
+<script>
+  // тот же хост и контекст, что у этой страницы
+  const base = location.pathname.replace(/\/[^/]*$/, '');
+  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + base + '/ws/changes';
+  function connect() {
+    const ws = new WebSocket(url);
+    ws.onopen = () => status.textContent = 'подключено: ' + url;
+    ws.onmessage = e => {
+      const li = document.createElement('li');
+      li.textContent = new Date().toLocaleTimeString() + '  ' + e.data;
+      log.prepend(li);
+    };
+    ws.onclose = () => { status.textContent = 'отключено, переподключение через 3 с…'; setTimeout(connect, 3000); };
+  }
+  connect();
+</script>
+</body>
+</html>

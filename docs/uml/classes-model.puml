@@ -1,0 +1,157 @@
+@startuml classes-model
+title SpaceMarine — классы предметной области (model) и DTO (dto)
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam class {
+  BackgroundColor #FDFDFB
+  BorderColor #555555
+}
+hide empty members
+
+package "ru.itmo.spacemarine.model" as model {
+
+  class SpaceMarine <<Entity>> <<table space_marine>> {
+    - id : Integer {id, > 0, unique, генерируется БД}
+    - name : String {not null, not blank}
+    - coordinates : Coordinates {not null}
+    - creationDate : ZonedDateTime {not null, генерируется}
+    - chapter : Chapter {not null}
+    - health : long {> 0}
+    - heartCount : Integer {nullable, 1..3}
+    - height : int
+    - meleeWeapon : MeleeWeapon {nullable}
+    --
+    ~ onCreate() <<@PrePersist>>
+    + get/set...()
+  }
+
+  class Coordinates <<Entity>> <<table coordinates>> {
+    - id : Integer {id, генерируется БД}
+    - x : Long {not null}
+    - y : Double {not null, > -833}
+    --
+    + get/set...()
+  }
+
+  class Chapter <<Entity>> <<table chapter>> {
+    - id : Integer {id, генерируется БД}
+    - name : String {not null, not blank}
+    - marinesCount : long {1..1000}
+    --
+    + get/set...()
+  }
+
+  enum MeleeWeapon {
+    CHAIN_SWORD
+    POWER_SWORD
+    CHAIN_AXE
+    POWER_FIST
+  }
+
+  class ZonedDateTimeConverter <<Converter>> {
+    + convertToDatabaseColumn(value : ZonedDateTime) : Timestamp
+    + convertToEntityAttribute(value : Timestamp) : ZonedDateTime
+  }
+
+  interface "AttributeConverter<ZonedDateTime, Timestamp>" as AttributeConverter <<jakarta.persistence>>
+}
+
+SpaceMarine "0..*" --> "1" Coordinates : coordinates\n@ManyToOne
+SpaceMarine "0..*" --> "1" Chapter : chapter\n@ManyToOne
+SpaceMarine --> "0..1" MeleeWeapon : meleeWeapon
+ZonedDateTimeConverter ..|> AttributeConverter
+SpaceMarine ..> ZonedDateTimeConverter : creationDate
+
+package "ru.itmo.spacemarine.dto" as dto {
+
+  class SpaceMarineDto {
+    + id : Integer
+    + name : String
+    + coordinates : CoordinatesDto
+    + creationDate : ZonedDateTime
+    + chapter : ChapterDto
+    + health : long
+    + heartCount : Integer
+    + height : int
+    + meleeWeapon : MeleeWeapon
+  }
+
+  class SpaceMarineRequest {
+    + name : String {not blank}
+    + coordinatesId : Integer
+    + coordinates : CoordinatesDto
+    + chapterId : Integer
+    + chapter : ChapterDto
+    + health : Long {> 0}
+    + heartCount : Integer {1..3}
+    + height : Integer {not null}
+    + meleeWeapon : MeleeWeapon
+  }
+  note bottom of SpaceMarineRequest
+    Ровно одно из: coordinatesId | coordinates,
+    и ровно одно из: chapterId | chapter
+  end note
+
+  class CoordinatesDto {
+    + id : Integer
+    + x : Long {not null}
+    + y : Double {> -833}
+  }
+
+  class ChapterDto {
+    + id : Integer
+    + name : String {not blank}
+    + marinesCount : Long {1..1000}
+  }
+
+  class "PageDto<T>" as PageDto {
+    + content : List<T>
+    + page : int
+    + size : int
+    + totalElements : long
+    + totalPages : int
+  }
+
+  class SpaceMarineFilter <<@BeanParam>> {
+    + page : int = 0
+    + size : int = 10
+    + name : String
+    + chapterName : String
+    + meleeWeapon : String
+    + sort : String = "id"
+    + order : String = "asc"
+  }
+
+  class WeaponGroupDto {
+    + meleeWeapon : String
+    + count : long
+  }
+
+  class ErrorDto {
+    + status : int
+    + message : String
+    + details : List<String>
+  }
+
+  class DtoMapper <<utility>> {
+    + {static} toDto(c : Chapter) : ChapterDto
+    + {static} toDto(c : Coordinates) : CoordinatesDto
+    + {static} toDto(m : SpaceMarine) : SpaceMarineDto
+    + {static} toEntity(d : ChapterDto) : Chapter
+    + {static} toEntity(d : CoordinatesDto) : Coordinates
+  }
+}
+
+SpaceMarineDto *-- "1" CoordinatesDto
+SpaceMarineDto *-- "1" ChapterDto
+SpaceMarineRequest o-- "0..1" CoordinatesDto
+SpaceMarineRequest o-- "0..1" ChapterDto
+PageDto o-- "0..*" SpaceMarineDto : content (T = SpaceMarineDto)
+DtoMapper ..> SpaceMarine
+DtoMapper ..> Chapter
+DtoMapper ..> Coordinates
+DtoMapper ..> SpaceMarineDto : <<create>>
+
+@enduml

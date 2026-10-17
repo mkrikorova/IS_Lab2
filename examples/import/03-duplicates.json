@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Test",
+    "coordinates": { "x": 5, "y": 5 },
+    "chapter": { "name": "Duplicates", "marinesCount": 50 },
+    "health": 10, "heartCount": 1, "height": 180, "meleeWeapon": "CHAIN_SWORD"
+  },
+  {
+    "name": "  test ",
+    "coordinates": { "x": 5, "y": 5 },
+    "chapter": { "name": "duplicates", "marinesCount": 50 },
+    "health": 10, "heartCount": 1, "height": 180, "meleeWeapon": "CHAIN_SWORD"
+  },
+  {
+    "name": "Test",
+    "coordinates": { "x": 5, "y": 5 },
+    "chapter": { "name": "Duplicates", "marinesCount": 50 },
+    "health": 11, "heartCount": 1, "height": 180, "meleeWeapon": "CHAIN_SWORD"
+  }
+]
